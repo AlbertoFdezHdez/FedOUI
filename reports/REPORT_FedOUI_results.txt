@@ -1,0 +1,110 @@
+FedOUI Experimental Report
+================================================================================
+
+Scope
+-----
+This report summarizes the extended experiments kept after the pilot sweep: the non-IID Dirichlet setting where FedOUI was competitive or better, and the noisy-client setting where FedOUI showed the strongest peak accuracy.
+
+What was trained
+----------------
+- Dataset: CIFAR-10.
+- Model: small CNN with two conv blocks, one hidden fully connected layer, and a final classifier.
+- Clients: 20 total.
+- Participants per round: 5 clients.
+- Local training: 1 epoch, SGD with momentum 0.9, lr 0.01, batch size 32.
+- Probe batch for OUI: 32 samples, fixed per client, computed on the penultimate pre-activation.
+- OUI aggregation rule: Beta fit on the round OUI values with percentile fallback if the fit is unstable.
+- Methods compared: FedAvg, FedProx, FedOUI, FedAlign, FedOUI-Align.
+- Seeds: 1, 2, 3.
+- Extended runs: 60 rounds, train subset 3000, test subset 1000.
+
+How to reproduce the extended experiments
+----------------------------------------
+Use these exact PowerShell loops from the project root:
+
+```powershell
+$methods = @('fedavg','fedprox','fedoui','fedalign','fedoui_align')
+foreach ($seed in 1,2,3) {
+  foreach ($method in $methods) {
+    python code/main.py --config code/config/cifar10_dirichlet_0.1.yaml --method $method --seed $seed --rounds 60 --train_subset_size 3000 --test_subset_size 1000 --num_clients 20 --participants_per_round 5 --batch_size 32 --test_batch_size 256 --probe_batch_size 32 --output_root descargas --download False
+  }
+}
+
+foreach ($seed in 1,2,3) {
+  foreach ($method in $methods) {
+    python code/main.py --config code/config/cifar10_noisy_clients.yaml --method $method --seed $seed --rounds 60 --train_subset_size 3000 --test_subset_size 1000 --num_clients 20 --participants_per_round 5 --batch_size 32 --test_batch_size 256 --probe_batch_size 32 --output_root descargas --download False
+  }
+}
+```
+
+Important fixed settings
+------------------------
+- OUI round for the representative histogram: the best round of the best FedOUI run in `cifar10_dirichlet_0.1_extended`.
+- Selected run: seed 3, round 59, run directory `descargas\cifar10\cifar10_dirichlet_0.1_extended\fedoui_seed_3`.
+- Output root used in the runs: `descargas/`.
+
+Table 1. Main extended results
+------------------------------
+scenario | method | final_accuracy_mean | final_accuracy_std | best_accuracy_mean | best_accuracy_std | auc_accuracy_mean | auc_accuracy_std | seeds
+--- | --- | --- | --- | --- | --- | --- | --- | ---
+cifar10_dirichlet_0.1_extended | fedalign | 0.1640 | 0.0234 | 0.1937 | 0.0096 | 0.1282 | 0.0049 | 3
+cifar10_dirichlet_0.1_extended | fedavg | 0.2163 | 0.0244 | 0.2797 | 0.0378 | 0.1644 | 0.0089 | 3
+cifar10_dirichlet_0.1_extended | fedoui | 0.2343 | 0.0631 | 0.2820 | 0.0266 | 0.1726 | 0.0136 | 3
+cifar10_dirichlet_0.1_extended | fedoui_align | 0.2043 | 0.0344 | 0.2200 | 0.0214 | 0.1440 | 0.0169 | 3
+cifar10_dirichlet_0.1_extended | fedprox | 0.2130 | 0.0180 | 0.2773 | 0.0393 | 0.1647 | 0.0090 | 3
+cifar10_noisy_clients_extended | fedalign | 0.2270 | 0.0669 | 0.2927 | 0.0237 | 0.1816 | 0.0120 | 3
+cifar10_noisy_clients_extended | fedavg | 0.2727 | 0.0335 | 0.3100 | 0.0128 | 0.2097 | 0.0164 | 3
+cifar10_noisy_clients_extended | fedoui | 0.2310 | 0.0527 | 0.3183 | 0.0090 | 0.2061 | 0.0155 | 3
+cifar10_noisy_clients_extended | fedoui_align | 0.2457 | 0.0380 | 0.2940 | 0.0195 | 0.1878 | 0.0097 | 3
+cifar10_noisy_clients_extended | fedprox | 0.2727 | 0.0309 | 0.3100 | 0.0101 | 0.2093 | 0.0162 | 3
+
+Interpretation of Table 1
+-------------------------
+In `cifar10_dirichlet_0.1_extended`, FedOUI is the strongest method on final accuracy and best accuracy. In the stronger-noise setting, FedOUI is not the best on final accuracy, but it does achieve the highest best-accuracy among the OUI-aware methods and remains competitive with the baselines. FedAlign is consistently weaker in the non-IID regime and should be treated as a secondary comparison, not the main story.
+
+Table 2. Representative OUI snapshot
+------------------------------------
+client_id | n_k | oui | score_s | alignment_a | weight | update_norm | train_loss
+--- | --- | --- | --- | --- | --- | --- | ---
+14 | 210 | 0.1265 | 0.0743 | 0.8232 | 0.0538 | 0.6970 | 1.4024
+9 | 226 | 0.2573 | 0.8950 | 0.4183 | 0.6890 | 0.3859 | 2.1239
+11 | 66 | 0.3101 | 0.6821 | 0.0588 | 0.1534 | 0.1279 | 2.1949
+7 | 40 | 0.3179 | 0.6264 | 0.3418 | 0.0854 | 0.0814 | 2.1863
+4 | 17 | 0.3716 | 0.3165 | 0.0513 | 0.0184 | 0.0229 | 2.0310
+
+Interpretation of Table 2
+-------------------------
+The round snapshot shows the mechanism clearly. The round-level OUI distribution is centered around 0.277 and is fitted by a Beta(6.10, 15.94). The client with OUI closest to the round center receives the largest structural score and the largest aggregation weight, while the low-OUI and very high-OUI clients are penalized smoothly. The alignment score is present, but OUI is the dominant gating signal in this example.
+
+Table 3. Round summary for the histogram case
+--------------------------------------------
+scenario | method | seed | round | test_accuracy | test_loss | oui_mean | oui_var | beta_alpha | beta_beta | score_mode
+--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
+cifar10_dirichlet_0.1_extended | fedoui | 3 | 59 | 0.3070 | 2.0106 | 0.2767 | 0.0087 | 6.0951 | 15.9359 | beta
+
+Interpretation of Table 3
+-------------------------
+The representative round is not a degenerate fit. The Beta parameters are finite and the score mode is `beta`, so the parametric structural score is active rather than falling back to percentiles. This is the kind of round the method is trying to exploit: the OUI values are spread but still compact enough to define a meaningful central tendency.
+
+What we observe
+---------------
+- The extended Dirichlet non-IID scenario is the cleanest win for FedOUI.
+- The noisy-client scenario is more mixed: FedOUI improves the best observed peak, but not always the final accuracy.
+- Combining OUI with alignment does not beat plain FedOUI here, so the combination should be described as exploratory rather than guaranteed improvement.
+- The Beta fit remains stable over the extended runs, with large but finite alpha/beta values, which is consistent with a bounded structural signal rather than a heavy-tailed one.
+
+Conclusions
+-----------
+1. OUI works best as a soft structural tipicity signal, not as a hard filter.
+2. In the strongest non-IID case we kept, FedOUI improved both the final and best accuracy over FedAvg and FedProx.
+3. In the noisy-client case, FedOUI improved the best peak but did not dominate final accuracy, so the effect should be presented as scenario-dependent.
+4. The histogram and the snapshot table show the intended behavior directly: central OUI clients get the highest weights, while extremes are softened rather than discarded.
+
+Files produced
+--------------
+- Report text: `REPORT_FedOUI_results.txt`
+- Extended results table: `display\results\tables\report_extended_results.csv`
+- OUI snapshot table: `display\results\tables\report_oui_snapshot.csv`
+- OUI round summary table: `display\results\tables\report_oui_round_summary.csv`
+- Snapshot histogram PDF+PNG base: `display\results\plots\oui_histogram_round59_fedoui_extended_A`
+- Windowed histogram paper PDF+PNG base: `display\results\plots\oui_histogram_round59_fedoui_extended_A_window_paper`

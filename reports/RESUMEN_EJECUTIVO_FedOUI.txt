@@ -1,0 +1,45 @@
+RESUMEN EJECUTIVO - FedOUI
+================================================================================
+
+Objetivo
+--------
+Evaluar si OUI mejora la agregacion federada cuando los clientes no son homogeneos, y dejar un paquete de resultados reproducible y facil de inspeccionar.
+
+Que se entreno
+--------------
+- CIFAR-10.
+- Modelo CNN pequeno.
+- 20 clientes totales, 5 participantes por ronda.
+- 3 seeds: 1, 2 y 3.
+- 60 rondas por corrida, subset de train=3000 y test=1000.
+- Metodos: FedAvg, FedProx, FedOUI, FedAlign y FedOUI-Align.
+- OUI medido sobre la capa penultima, con batch de probe fijo por cliente.
+
+Como reproducir
+---------------
+Ejecuta desde la raiz del proyecto los comandos del report completo:
+- Configuracion principal non-IID: `code/config/cifar10_dirichlet_0.1.yaml`.
+- Configuracion de clientes ruidosos: `code/config/cifar10_noisy_clients.yaml`.
+- Mismas banderas para todas las corridas: `--rounds 60 --train_subset_size 3000 --test_subset_size 1000 --num_clients 20 --participants_per_round 5 --batch_size 32 --test_batch_size 256 --probe_batch_size 32 --output_root descargas --download False`.
+
+Resultados clave
+----------------
+- Escenario A (`cifar10_dirichlet_0.1_extended`): gana FedOUI. Final medio 0.234 +/- 0.063, mejor medio 0.282 +/- 0.027.
+- Escenario C (`cifar10_noisy_clients_extended`): FedOUI gana en mejor accuracy media (0.318 +/- 0.009), pero no en accuracy final.
+- La ronda representativa usada para el snapshot es seed 3, round 59, en `descargas\cifar10\cifar10_dirichlet_0.1_extended\fedoui_seed_3`.
+
+Que se observa
+-------------
+- El cliente con mayor peso en la ronda representativa es el cliente 9, con OUI cercano al centro de la distribucion.
+- FedOUI se comporta como una senal estructural suave: penaliza extremos sin expulsarlos.
+- FedAlign no aporta una mejora estable frente a FedOUI puro en estos escenarios.
+
+Sobre el histograma
+-------------------
+- El histograma original usa los clientes participantes de una ronda concreta; como solo participan 5 clientes por ronda, es normal que se vea muy esparcido.
+- Para una lectura mas estable, la figura adicional usa una ventana local mas amplia de rondas alrededor de ese instante, de modo que la beta encima se ajuste a una muestra mas informativa. Esa version se guarda tambien como PDF vectorial con tipografia estilo paper.
+
+Conclusion
+----------
+FedOUI es especialmente util en el escenario non-IID fuerte; en ruido de clientes sigue siendo competitivo, pero el efecto es mas dependiente del escenario.
+

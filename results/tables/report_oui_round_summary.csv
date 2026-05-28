@@ -1,0 +1,2 @@
+scenario,method,seed,round,test_accuracy,test_loss,oui_mean,oui_var,beta_alpha,beta_beta,score_mode
+cifar10_dirichlet_0.1_extended,fedoui,3,59,0.307,2.010573211669922,0.27666015625,0.0086891174316406,6.095107882224454,15.935920961396588,beta

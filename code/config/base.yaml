@@ -1,0 +1,33 @@
+experiment:
+  dataset: cifar10
+  model: small_cnn
+  method: fedavg
+  scenario: dirichlet
+  seed: 1
+  num_clients: 20
+  participants_per_round: 5
+  rounds: 100
+  local_epochs: 1
+  batch_size: 32
+  test_batch_size: 256
+  lr: 0.01
+  momentum: 0.9
+  weight_decay: 0.0
+  mu: 0.01
+  gamma: 1.0
+  eta: 1.0
+  rho: 1.0
+  epsilon: 0.001
+  beta_mode: beta
+  beta_window: current
+  beta_window_size: 5
+  probe_batch_size: 32
+  oui_layer: penultimate_preact
+  device: cpu
+  data_root: data
+  output_root: descargas
+  train_subset_size: null
+  test_subset_size: null
+  download: true
+  save_every_round: true
+
